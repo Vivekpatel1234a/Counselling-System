@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   BrowserRouter,
   Link,
@@ -6,20 +6,40 @@ import {
   NavLink,
   Route,
   Routes,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
-import "./App.css";
+import { ThemeProvider as MuiThemeProvider, createTheme } from "@mui/material/styles";
+import { CssBaseline, Box, Container, Paper, Typography, Grid, Card, CardContent, Avatar, Chip, Button } from "@mui/material";
+import { 
+  Logout as LogoutIcon,
+  Dashboard as DashboardIcon,
+  ListAlt as ListIcon,
+  TravelExplore as DiscoverIcon,
+  Flag as FlagIcon,
+  SmartToy as SmartToyIcon,
+  People as PeopleIcon,
+  Settings as SettingsIcon,
+} from "@mui/icons-material";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import AboutPage from "./pages/AboutPage";
 import NotificationsPage from "./pages/NotificationsPage";
-import counsellingLogo from "./assets/counselling-logo.svg";
+import AICounsellor from "./pages/AICounsellor";
+import ThemeToggle from "./components/ThemeToggle";
+import { ThemeProvider, useTheme } from "./utils/ThemeContext";
+import counsellingLogo from "./assets/logo.webp";
 
 const DEFAULT_BRANCHES = {
   CSE: { total: 2, remaining: 2 },
   IT: { total: 3, remaining: 3 },
   ECE: { total: 3, remaining: 3 },
   ME: { total: 2, remaining: 2 },
+  CE: { total: 2, remaining: 2 },
+  CHE: { total: 2, remaining: 2 },
+  AE: { total: 2, remaining: 2 },
+  BT: { total: 2, remaining: 2 },
 };
 
 const STORAGE_KEYS = {
@@ -43,16 +63,17 @@ const readStorage = (key, fallbackValue) => {
 };
 
 function AppLayout() {
-  const [users, setUsers] = useState(() =>
-    readStorage(STORAGE_KEYS.users, []),
-  );
+  const { theme } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [users, setUsers] = useState(() => readStorage(STORAGE_KEYS.users, []));
   const [students, setStudents] = useState(() =>
     readStorage(STORAGE_KEYS.students, []),
   );
   const [branches, setBranches] = useState(() =>
     readStorage(STORAGE_KEYS.branches, DEFAULT_BRANCHES),
   );
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null); // Always start logged out on refresh
   const isStudent = currentUser?.role === "student";
   const isAdmin = currentUser?.role === "admin";
 
@@ -68,8 +89,11 @@ function AppLayout() {
     localStorage.setItem(STORAGE_KEYS.branches, JSON.stringify(branches));
   }, [branches]);
 
-  const dashboardLink =
-    isAdmin ? "/admin" : isStudent ? "/student" : "/";
+  useEffect(() => {
+    localStorage.setItem("smart-counselling-user", JSON.stringify(currentUser));
+  }, [currentUser]);
+
+  const dashboardLink = isAdmin ? "/admin" : isStudent ? "/student" : "/";
 
   const navLinks = [
     { to: "/", label: "Home" },
@@ -79,10 +103,7 @@ function AppLayout() {
 
   const homeStats = [
     { label: "Registered Students", value: students.length },
-    {
-      label: "Active Branches",
-      value: Object.keys(branches).length,
-    },
+    { label: "Active Branches", value: Object.keys(branches).length },
     {
       label: "Locked Preferences",
       value: students.filter((student) => student.status === "Locked").length,
@@ -90,165 +111,302 @@ function AppLayout() {
     {
       label: "Allocated Results",
       value: students.filter(
-        (student) =>
-          student.allocated && student.allocated !== "Not Allocated",
+        (student) => student.allocated && student.allocated !== "Not Allocated",
       ).length,
     },
   ];
 
+  const studentNavLinks = [
+    { to: "/student", label: "Dashboard", icon: <DashboardIcon sx={{ fontSize: 20 }} /> },
+    { to: "/student/preferences", label: "Preferences", icon: <ListIcon sx={{ fontSize: 20 }} /> },
+    { to: "/student/discover", label: "Discover", icon: <DiscoverIcon sx={{ fontSize: 20 }} /> },
+    { to: "/student/result", label: "Result", icon: <FlagIcon sx={{ fontSize: 20 }} /> },
+    { to: "/ai", label: "AI Counsellor", icon: <SmartToyIcon sx={{ fontSize: 20 }} /> },
+  ];
+  const adminNavLinks = [
+    { to: "/admin", label: "Dashboard", icon: <DashboardIcon sx={{ fontSize: 20 }} /> },
+    { to: "/admin/students", label: "Student List", icon: <PeopleIcon sx={{ fontSize: 20 }} /> },
+    { to: "/admin/controls", label: "Controls", icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
+  ];
+
+  const roleLinks = isStudent ? studentNavLinks : adminNavLinks;
+
+  const muiTheme = useMemo(() => createTheme({
+    palette: {
+      mode: theme,
+      primary: {
+        main: '#2563eb',
+      },
+      secondary: {
+        main: '#f43f5e',
+      },
+      background: {
+        default: theme === 'dark' ? '#000000' : '#f9fafb',
+        paper: theme === 'dark' ? '#0a0a0a' : '#ffffff',
+      },
+      text: {
+        primary: theme === 'dark' ? '#ffffff' : '#111827',
+        secondary: theme === 'dark' ? '#a0a0a0' : '#6b7280',
+      },
+    },
+    typography: {
+      fontFamily: '"Inter", "Outfit", sans-serif',
+    },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            backgroundColor: theme === 'dark' ? '#0a0a0a' : '#ffffff',
+            border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.05)',
+          },
+        },
+      },
+    },
+  }), [theme]);
+
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <Link to="/" className="brand-block">
-            <img
-              src={counsellingLogo}
-              alt="Rank2Campus"
-              className="brand-logo"
-            />
-            <div>
-              <strong>Rank2Campus</strong>
-              <span>Admission counselling and seat allotment portal</span>
-            </div>
-          </Link>
-
-          <nav className="main-nav">
-            {navLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} className="nav-link">
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="topbar-side">
-            <Link to={dashboardLink} className="profile-button profile-link-button">
-              <span className="profile-avatar" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="profile-icon"
-                >
-                  <path
-                    d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M12 14C7.58172 14 4 17.134 4 21H20C20 17.134 16.4183 14 12 14Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="content-shell">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Login
-                users={users}
-                setUsers={setUsers}
-                students={students}
-                setStudents={setStudents}
-                setCurrentUser={setCurrentUser}
-                stats={homeStats}
-              />
-            }
-          />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route
-            path="/student"
-            element={
-              isStudent ? (
-                <StudentDashboard
-                  currentUser={currentUser}
-                  setCurrentUser={setCurrentUser}
-                  students={students}
-                  setStudents={setStudents}
-                  branches={branches}
-                />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              isAdmin ? (
-                <AdminDashboard
-                  setCurrentUser={setCurrentUser}
-                  students={students}
-                  setStudents={setStudents}
-                  branches={branches}
-                  setBranches={setBranches}
-                  defaultBranches={DEFAULT_BRANCHES}
-                />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-        </Routes>
-      </main>
-
-      <footer className="site-footer">
-        <div className="footer-shell">
-          <div className="footer-brand">
-            <div className="footer-logo-row">
-              <img
+    <MuiThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <div className="min-h-screen bg-base lg:flex font-['Inter'] text-primary">
+        {currentUser && (
+          <aside className="hidden lg:flex w-80 flex-col p-8 sticky top-0 h-screen overflow-y-auto z-40">
+            <div className="flex items-center gap-4 px-2 mb-12">
+              <img 
                 src={counsellingLogo}
-                alt="Rank2Campus"
-                className="brand-logo footer-mark"
+                alt="Rank2Campus" 
+                className="h-12 w-12 rounded-2xl object-contain shadow-2xl bg-white border-2 border-white"
               />
-              <div>
-                <strong>Rank2Campus</strong>
-                <span>
-                  A unified portal for student registration, preference locking,
-                  and transparent seat allocation.
-                </span>
+              <span className="text-2xl font-black text-primary tracking-tighter font-['Outfit']">rank2campus</span>
+            </div>
+
+            <nav className="flex-1 space-y-3">
+              {roleLinks.map((link) => {
+                const isActive = location.pathname === link.to || (link.to === "/student" && location.pathname === "/student/dashboard");
+
+                return (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    end={link.to === "/student" || link.to === "/admin"}
+                    className={() =>
+                      `w-full flex items-center gap-4 px-4 py-4 rounded-[20px] font-bold transition-all duration-300 ${
+                        isActive 
+                        ? "bg-blue-600 text-white shadow-2xl scale-[1.02]" 
+                        : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      }`
+                    }
+                  >
+                    <span className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
+                      isActive ? "bg-white/20 text-white" : "bg-white/5 text-slate-500"
+                    }`}>
+                      {link.icon}
+                    </span>
+                    <span className="text-[15px]">{link.label}</span>
+                  </NavLink>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto space-y-2 pt-8 border-t border-subtle">
+              <ThemeToggle showLabel />
+              <div className="mb-4 p-5 rounded-[24px] bg-surface-2 border border-subtle shadow-card">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-2">Authenticated As</p>
+                <p className="text-base font-black text-primary capitalize">{currentUser.role}</p>
               </div>
+              <button
+                onClick={() => {
+                  setCurrentUser(null);
+                  navigate("/");
+                }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-[20px] font-bold text-rose-500 hover:bg-rose-500/10 transition-all duration-300 group"
+              >
+                <div className="h-11 w-11 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-all">
+                  <LogoutIcon sx={{ fontSize: 20 }} />
+                </div>
+                <span className="text-[15px]">Sign Out</span>
+              </button>
             </div>
-          </div>
+          </aside>
+        )}
 
-          <div className="footer-links">
-            <h4>Student Services</h4>
-            <div className="footer-link-list">
-              {navLinks.map((link) => (
-                <Link key={link.to} to={link.to}>
-                  {link.label}
+        <div className="min-w-0 flex-1 flex flex-col">
+          {!currentUser && (
+            <header className="sticky top-0 z-50 glass-effect">
+              <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
+                <Link to="/" className="flex items-center gap-4 group">
+                  <img 
+                    src={counsellingLogo}
+                    alt="Rank2Campus" 
+                    className="h-10 w-10 rounded-xl object-contain bg-white transition-transform group-hover:scale-110"
+                  />
+                  <div>
+                    <strong className="block text-2xl font-black text-primary tracking-tighter font-['Outfit']">
+                      Rank2Campus
+                    </strong>
+                  </div>
                 </Link>
-              ))}
-              <Link to={dashboardLink}>Dashboard</Link>
-            </div>
-          </div>
 
-          <div className="footer-info">
-            <h4>Contact</h4>
-            <p>Admissions Cell, City Campus, New Delhi 110001</p>
-            <p>support@rank2campus.edu.in</p>
-            <p>+91 1800 123 4567</p>
-          </div>
+                <nav className="hidden md:flex items-center gap-8">
+                  {navLinks.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      className={({ isActive }) =>
+                        `px-2 py-1 text-sm font-black uppercase tracking-widest transition-all ${
+                          isActive
+                            ? "text-blue-500"
+                            : "text-muted hover:text-primary"
+                        }`
+                      }
+                    >
+                      {link.label}
+                    </NavLink>
+                  ))}
+                  <div className="w-12">
+                    <ThemeToggle />
+                  </div>
+                </nav>
+              </div>
+            </header>
+          )}
+
+          <main
+            className={
+              currentUser ? "p-6 lg:p-12 bg-base min-h-screen" : "flex-1 bg-base"
+            }
+          >
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  currentUser ? (
+                    <Navigate to={isAdmin ? "/admin" : "/student"} replace />
+                  ) : (
+                    <Login
+                      users={users}
+                      setUsers={setUsers}
+                      students={students}
+                      setStudents={setStudents}
+                      setCurrentUser={setCurrentUser}
+                      stats={homeStats}
+                    />
+                  )
+                }
+              />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route
+                path="/student/*"
+                element={
+                  isStudent ? (
+                    <StudentDashboard
+                      currentUser={currentUser}
+                      setCurrentUser={setCurrentUser}
+                      students={students}
+                      setStudents={setStudents}
+                      branches={branches}
+                    />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  isAdmin ? (
+                    <AdminDashboard
+                      setCurrentUser={setCurrentUser}
+                      students={students}
+                      setStudents={setStudents}
+                      branches={branches}
+                      setBranches={setBranches}
+                      defaultBranches={DEFAULT_BRANCHES}
+                    />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/ai"
+                element={
+                  isStudent ? (
+                    <AICounsellor
+                      currentUser={currentUser}
+                      students={students}
+                      branches={branches}
+                    />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+            </Routes>
+          </main>
+
+          {!currentUser && (
+            <footer className="mt-8 bg-surface-1 border-t border-subtle py-10 text-primary shadow-premium">
+              <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src={counsellingLogo}
+                      alt="Rank2Campus" 
+                      className="h-10 w-10 rounded-xl object-contain bg-white"
+                    />
+                    <div>
+                      <strong className="block text-lg text-primary">Rank2Campus</strong>
+                      <span className="block text-sm text-muted">
+                        A unified portal for registration, preference locking, and transparent seat allocation.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-muted">
+                    Student Services
+                  </h4>
+                  <div className="space-y-2 text-sm text-muted">
+                    {navLinks.map((link) => (
+                      <a key={link.to} href={link.to} className="block hover:text-primary transition-colors">
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm text-muted">
+                  <h4 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-muted">
+                    Contact
+                  </h4>
+                  <p>Admissions Cell, City Campus, New Delhi 110001</p>
+                  <p>support@rank2campus.edu.in</p>
+                  <p>+91 1800 123 4567</p>
+                </div>
+              </div>
+
+              <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-2 border-t border-subtle px-4 pt-6 text-sm text-muted sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+                <span>&copy; 2026 Rank2Campus. All rights reserved.</span>
+                <span>Privacy Policy</span>
+              </div>
+            </footer>
+          )}
         </div>
-        <div className="footer-bottom">
-          <span>(c) 2026 Rank2Campus. All rights reserved.</span>
-          <span>Privacy Policy</span>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </MuiThemeProvider>
   );
 }
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppLayout />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
